@@ -6,6 +6,8 @@ import sys
 sys.path.append('..')
 from fetchers import fetch_all_data , fetch_random_joke , fetch_random_user
 from database import DatabaseConnection
+import time
+import asyncio
 
 @pytest.mark.asyncio
 async def test_fetch_user():
@@ -48,7 +50,54 @@ async def test_fetch_all_data(mock_db):
         assert response[1] == fake_joke
         mock_db.assert_called_once_with("TESTDATABASE.db")
 
-             
-
-
+@pytest.mark.asyncio
+async def test_fetch_user_timeout():
+    with aioresponses() as mock:
+        mock.get("https://randomuser.me/api/" , exception = asyncio.TimeoutError())
+        async with aiohttp.ClientSession() as session:
+            response =await fetch_random_user(session)
+            assert response is None
+        
+@pytest.mark.asyncio
+async def test_fetch_user_bad_status():
+    with aioresponses() as mock:
+        mock.get("https://randomuser.me/api/" , status = 404)
+        async with aiohttp.ClientSession() as session:
+            response =await fetch_random_user(session)
+            assert response is None    
+        
+@pytest.mark.asyncio
+async def test_fetch_user_network_error():
+    with aioresponses() as mock:       
+        mock.get("https://randomuser.me/api/" , exception = aiohttp.ClientError())
+        async with aiohttp.ClientSession() as session:
+            response =await fetch_random_user(session)
+            assert response is None
+            
+#==============================
+@pytest.mark.asyncio
+async def test_fetch_joke_timeout():
+    with aioresponses() as mock:
+        mock.get("https://api.chucknorris.io/jokes/random" , exception = asyncio.TimeoutError())
+        async with aiohttp.ClientSession() as session:
+            response =await fetch_random_joke(session)
+            assert response is None
+        
+@pytest.mark.asyncio
+async def test_fetch_joke_bad_status():
+    with aioresponses() as mock:
+        mock.get("https://api.chucknorris.io/jokes/random" , status = 404)
+        async with aiohttp.ClientSession() as session:
+            response =await fetch_random_joke(session)
+            assert response is None    
+        
+@pytest.mark.asyncio
+async def test_fetch_joke_network_error():
+    with aioresponses() as mock:       
+        mock.get("https://api.chucknorris.io/jokes/random" , exception = aiohttp.ClientError())
+        async with aiohttp.ClientSession() as session:
+            response =await fetch_random_joke(session)
+            assert response is None
+            
+            
         

@@ -14,7 +14,8 @@ This project showcases the integration of three key Python concepts:
 - Fetches data from multiple APIs simultaneously using `asyncio.gather()`
 - Safely manages database connections with custom context manager
 - Processes multiple batches lazily with generator pattern
-- Comprehensive test suite with 95%+ code coverage
+- Comprehensive error handling (timeouts, network errors, API failures)
+- Full test suite with mocked API responses
 - Professional error handling and resource cleanup
 
 ## 📊 Data Sources
@@ -29,6 +30,7 @@ This project showcases the integration of three key Python concepts:
 - **asyncio**: Asynchronous programming
 - **SQLite**: Lightweight database
 - **pytest**: Testing framework with async support
+- **aioresponses**: For mocking async HTTP requests in tests
 
 ## 📁 Project Structure
 
@@ -36,11 +38,11 @@ This project showcases the integration of three key Python concepts:
 async-data-aggregator/
 ├── fetchers.py          # Async API fetching logic
 ├── database.py          # Context manager for DB operations
-├── processors.py        # Generator for batch processing
+├── processor.py         # Generator for batch processing
 ├── tests/
 │   ├── test_fetchers.py
 │   ├── test_database.py
-│   └── test_processors.py
+│   └── test_processor.py
 ├── requirements.txt
 ├── .gitignore
 └── README.md
@@ -74,7 +76,7 @@ python fetchers.py
 
 ### Process multiple batches
 ```bash
-python processors.py
+python processor.py
 ```
 
 ### Run tests
@@ -82,21 +84,27 @@ python processors.py
 # Run all tests
 pytest tests/ -v
 
-# Run with coverage
-pytest tests/ --cov=. --cov-report=html
+# Run specific test file
+pytest tests/test_fetchers.py -v
 ```
 
 ## 📝 Code Examples
 
-### Async API Fetching
+### Async API Fetching with Error Handling
 ```python
-async def fetch_all_data():
-    async with aiohttp.ClientSession() as session:
-        results = await asyncio.gather(
-            fetch_random_user(session),
-            fetch_random_joke(session)
-        )
-        return results
+async def fetch_random_user(session, timeout=10):
+    try:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as response:
+            if response.status != 200:
+                return None
+            data = await response.json()
+            return data
+    except asyncio.TimeoutError:
+        print(f"Timeout: API took longer than {timeout} seconds")
+        return None
+    except aiohttp.ClientError as e:
+        print(f"Network error: {e}")
+        return None
 ```
 
 ### Context Manager for Database
@@ -113,15 +121,29 @@ for batch in fetch_multiple_batches(num_batches=5):
     process(batch)  # Memory-efficient iteration
 ```
 
+## ⚠️ Error Handling
+
+The application handles:
+- **Network timeouts**: Default 10 seconds per request
+- **API errors**: Non-200 status codes (404, 500, etc.)
+- **Connection failures**: Network unavailability
+- **Invalid responses**: Malformed API data
+- **Database errors**: Connection and transaction failures
+
+All errors are logged and handled gracefully without crashing the application.
+
 ## 🧪 Testing
 
 The project includes comprehensive tests covering:
-- ✅ Mocked API responses (no real HTTP calls in tests)
+- ✅ Successful API responses with mocked data
+- ✅ Timeout scenarios
+- ✅ Bad status codes (404, 500)
+- ✅ Network errors
 - ✅ Database connection lifecycle
 - ✅ Generator behavior and lazy evaluation
-- ✅ Error handling and edge cases
+- ✅ Edge cases and error conditions
 
-**Test coverage**: 95%+
+**Total tests**: 9+ covering all critical paths
 
 ## 🎓 Learning Outcomes
 
@@ -129,26 +151,29 @@ This project demonstrates:
 - **Concurrent Programming**: Using `asyncio.gather()` to improve performance
 - **Resource Management**: Safe handling of connections with context managers
 - **Memory Efficiency**: Processing large datasets with generators
+- **Error Handling**: Robust timeout and exception handling
 - **Test-Driven Development**: Comprehensive mocking and async testing
 - **Professional Code Structure**: Separation of concerns across modules
 
 ## 🔍 Performance Benefits
 
-**Sequential execution**: ~2 seconds (API calls one after another)
+**Sequential execution**: APIs called one after another
 ```python
-user = await fetch_random_user(session)  # 1 second
-joke = await fetch_random_joke(session)  # 1 second
-# Total: 2 seconds
+user = await fetch_random_user(session)
+joke = await fetch_random_joke(session)
+# Both wait for each other
 ```
 
-**Concurrent execution**: ~1 second (both APIs called simultaneously)
+**Concurrent execution**: Both APIs called simultaneously
 ```python
 results = await asyncio.gather(
-    fetch_random_user(session),  # \
-    fetch_random_joke(session)    # } Both run at the same time
+    fetch_random_user(session),
+    fetch_random_joke(session)
 )
-# Total: 1 second
+# Both run at the same time - faster!
 ```
+
+Concurrent execution significantly reduces total wait time when fetching from multiple APIs.
 
 ## 🤝 Contributing
 
@@ -166,6 +191,6 @@ This project is open source and available under the MIT License.
 
 ## 🙏 Acknowledgments
 
-- Built as part of a 100-day Python learning journey
+- Built as part of a 180-day Python learning journey (Day 66-67)
 - Demonstrates skills applicable to real-world backend development
 - APIs used: randomuser.me, api.chucknorris.io
